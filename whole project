@@ -1,0 +1,339 @@
+# PROIECT BAZE DE DATE
+
+**TITLUL PROIECTULUI:** Gestiunea Închirierilor de Terenuri Sportive
+
+**STUDENT:** Lazureanu Andrei  
+**GRUPA:** G151 
+
+---
+
+## Cuprins
+
+1. [Descrierea modelului real](#1-descrierea-modelului-real)
+2. [Prezentarea constrangerilor](#2-prezentarea-constrangerilor)
+3. [Proiectarea Diagramei Entitate-Relatie](#3-proiectarea-diagramei-entitate-relatie)
+4. [Transformarea Diagramei ER in Diagrama Conceptuala](#4-transformarea-diagramei-er-in-diagrama-conceptuala)
+5. [Scheme relationale](#5-scheme-relationale)
+6. [Crearea tabelelor in SQL si inserarea datelor](#6-crearea-tabelelor-in-sql-si-inserarea-datelor)
+
+---
+
+## 1. Descrierea modelului real
+
+Modelul real descrie sistemul informatic al unei platforme online destinată gestionării rezervărilor pentru terenuri sportive din diverse complexuri din București. Utilitatea acestui sistem este de a centraliza oferta de terenuri (tenis, fotbal, padel, bazine de înot etc.), de a permite clienților să caute disponibilități, să facă rezervări și plăți online, și de a oferi administratorilor de complexuri o modalitate eficientă de a-și gestiona facilitățile și programările.
+
+### Reguli de funcționare (limbaj natural):
+
+1. Clienții se pot înregistra pe platformă folosind datele personale (nume, email, telefon). Un client poate avea un singur cont.
+2. Platforma listează mai multe Complexuri Sportive, fiecare cu adresa și programul său de funcționare.
+3. Fiecare complex sportiv deține unul sau mai multe Terenuri. Un teren aparține unui singur complex.
+4. Terenurile sunt de mai multe tipuri (specializări): terenuri de tenis, terenuri de fotbal, piscine etc. Fiecare tip are caracteristici specifice.
+5. Un client poate efectua o Rezervare pentru un anumit teren, la o anumită dată și într-un anumit interval orar. O rezervare este făcută de un singur client principal, dar la ea pot participa mai mulți clienți (invitați).
+6. Pentru o rezervare, un client poate închiria și Echipament specific. Închirierea se face pentru o rezervare anume.
+7. Clienții fideli pot achiziționa un Abonament care le oferă reduceri. Un client poate avea un singur abonament activ la un moment dat.
+8. Fiecare complex sportiv are Vestiare, identificate printr-un număr unic în cadrul acelui complex (entitate dependentă).
+
+---
+
+## 2. Prezentarea constrângerilor
+
+1. Un Complex Sportiv trebuie să aibă cel puțin un Teren (1:N).
+2. Un Teren aparține unui singur Complex Sportiv.
+3. Specializare totală și disjunctă (ISA) pentru tipurile de terenuri.
+4. Vestiarul este entitate dependentă (weak entity).
+5. Relație 1:1 între Client și Abonament.
+6. Relație 1:N între Client → Rezervare și Teren → Rezervare.
+7. Relație M:N între Client și Rezervare (participanți).
+8. Relație ternară (CLIENT – REZERVARE – ECHIPAMENT) pentru închiriere.
+9. Email-ul fiecărui client este unic.
+10. Durata minimă a unei rezervări este de o oră.
+
+---
+
+## 3. Proiectarea Diagramei Entitate-Relatie
+
+[Deschideți cu draw.io](https://drive.google.com/file/d/1ahsvNTjnzHRvGkLHprak21djyT9-5tjd/view?usp=sharing)
+
+---
+
+## 3.1 Descrierea entităților
+
+- **COMPLEX_SPORTIV** – Entitate independentă:  
+  Reprezintă locația fizică principală unde se desfășoară activitățile. Conține date generale de identificare și funcționare. Cheia primară este `complex_id`.
+
+- **VESTIAR** – Entitate dependentă (weak):  
+  Reprezintă unitățile de depozitare/schimb. Existența sa este condiționată de un complex sportiv (nu poate exista un vestiar fără un complex). Cheia primară este compusă din `complex_id` (FK) și `nr_vestiar` (PK).
+
+- **TEREN** – Super-entitate:  
+  O entitate generică pentru toate spațiile de joc (fotbal, tenis, piscină). Servește drept bază pentru specializări. Cheia primară este `teren_id`.
+
+- **TEREN_TENIS, TEREN_FOTBAL, PISCINA** – Sub-entități (ISA):  
+  Sunt specializări ale entității TEREN. Moștenesc cheia primară `teren_id` și adaugă atribute specifice (ex: tip suprafață, adâncime).
+
+- **CLIENT, ABONAMENT, ECHIPAMENT, REZERVARE** – Entități independente:  
+  Unități de sine stătătoare care stochează informații despre persoanele care utilizează serviciile, tipurile de abonamente disponibile, bunurile ce pot fi închiriate și programările efectuate.
+
+---
+
+## 3.2 Descrierea relațiilor
+
+- **RELAȚIE ONE-TO-ONE (1:1)** – **ARE (Client ↔ Abonament)**:  
+  Un client poate deține un singur abonament activ la un moment dat, iar un abonament este emis nominal pentru un singur client. Cardinalitatea este 1:1.
+
+- **RELAȚIE ONE-TO-MANY (1:N)** – **DEȚINE (Complex Sportiv → Teren)**:  
+  Un complex sportiv administrează mai multe terenuri sau zone sportive, dar un teren aparține administrativ unui singur complex. Cardinalitatea este 1:M.
+
+- **RELAȚIE MANY-TO-MANY (M:N)** – **PARTICIPĂ_LA (Client ↔ Rezervare)**:  
+  Un client se poate înscrie la mai multe rezervări (meciuri/sesiuni), iar la o singură rezervare pot fi prezenți mai mulți clienți. Aceasta este mediată de entitatea asociativă `PARTICIPANTI_REZERVARE`.
+
+- **RELAȚIE DE TIP 3 (TERNARĂ/ASOCIATIVĂ)** – **ÎNCHIRIAZĂ (Echipament, Rezervare, Client)**:  
+  Această relație (marcată prin entitatea `INCHIRIERE`) face legătura între un echipament specific și o rezervare activă. Permite monitorizarea faptului că în cadrul unei rezervări s-a închiriat un anumit set de echipamente.
+
+---
+
+## 3.3 Descrierea atributelor
+
+### Atributele unei entități independente (**CLIENT**)
+
+- `client_id`: INT, cheie primară, unic  
+- `nume` / `prenume`: STRING, lungime max 50, obligatorii (NOT NULL)  
+- `email`: STRING, lungime max 100, constrângere de unicitate (UNIQUE)  
+- `data_inregistrare`: DATE, reprezintă momentul creării contului  
+
+### Atributele unei subentități (**TEREN_FOTBAL**)
+
+- `teren_id`: INT, cheie primară și cheie externă (provenită din TEREN)  
+- `tip_gazon`: STRING, valori posibile: `'Natural'`, `'Sintetic'`  
+- `este_acoperit`: BOOLEAN, valori implicite: TRUE/FALSE  
+
+### Atributele unei relații / entități asociative (**REZERVARE**)
+
+- `rezervare_id`: INT, cheie primară  
+- `data_rezervare`: DATE, obligatoriu  
+- `ora_inceput` / `ora_sfarsit`: DATETIME, definește intervalul orar ocupat  
+- `status_plata`: STRING, valori permise: `'Platit'`, `'Neplatit'`, `'Anulat'`  
+  - Valoare implicită: `'Neplatit'`
+
+---
+
+## 4. Transformarea Diagramei ER in Diagrama Conceptuala
+
+[Deschideți cu draw.io](https://drive.google.com/file/d/1Pq1zq4wQKWlXv4alWRupPljp2_Un6GpP/view?usp=sharing)
+
+---
+
+## 5. Scheme relationale
+
+- **CLIENT** (client_id, nume, prenume, email, telefon, data_inregistrare)
+
+- **PISCINA** (teren_id, adancime_metri, este_acoperita) *— teren_id FK → TEREN*
+
+- **PARTICIPANTI_REZERVARE** (client_id, rezervare_id)
+
+- **INCHIRIERE** (client_id, rezervare_id, echipament_id, cantitate)
+
+---
+
+## 6. Crearea tabelelor in SQL si inserarea datelor
+
+### 6.1 Crearea tabelelor
+
+```sql
+-- Tabele independente
+CREATE TABLE COMPLEX_SPORTIV (
+    complex_id NUMBER(10) PRIMARY KEY,
+    nume_complex VARCHAR2(100) NOT NULL,
+    adresa VARCHAR2(255) NOT NULL,
+    program_functionare VARCHAR2(50)
+);
+
+CREATE TABLE CLIENT (
+    client_id NUMBER(10) PRIMARY KEY,
+    nume VARCHAR2(50) NOT NULL,
+    prenume VARCHAR2(50) NOT NULL,
+    email VARCHAR2(100) NOT NULL UNIQUE,
+    telefon VARCHAR2(15),
+    data_inregistrare DATE DEFAULT SYSDATE
+);
+
+CREATE TABLE ABONAMENT (
+    abonament_id NUMBER(10) PRIMARY KEY,
+    tip_abonament VARCHAR2(50) NOT NULL,
+    data_inceput DATE NOT NULL,
+    data_expirare DATE NOT NULL,
+    pret NUMBER(8, 2) NOT NULL,
+    client_id NUMBER(10) NOT NULL UNIQUE,
+    CONSTRAINT fk_abonament_client FOREIGN KEY (client_id) REFERENCES CLIENT(client_id)
+);
+
+CREATE TABLE ECHIPAMENT (
+    echipament_id NUMBER(10) PRIMARY KEY,
+    nume_echipament VARCHAR2(100) NOT NULL,
+    pret_inchiriere_ora NUMBER(6, 2) NOT NULL
+);
+
+CREATE TABLE TEREN (
+    teren_id NUMBER(10) PRIMARY KEY,
+    pret_ora NUMBER(6, 2) NOT NULL,
+    capacitate_maxima NUMBER(3),
+    tip_teren VARCHAR2(20) NOT NULL,
+    complex_id NUMBER(10) NOT NULL,
+    CONSTRAINT fk_teren_complex FOREIGN KEY (complex_id) REFERENCES COMPLEX_SPORTIV(complex_id),
+    CONSTRAINT chk_tip_teren CHECK (tip_teren IN ('Tenis', 'Fotbal', 'Piscina'))
+);
+
+-- Subtabele (Specializări)
+CREATE TABLE TEREN_TENIS (
+    teren_id NUMBER(10) PRIMARY KEY,
+    tip_suprafata VARCHAR2(20) NOT NULL,
+    CONSTRAINT fk_tenis_teren FOREIGN KEY (teren_id) REFERENCES TEREN(teren_id),
+    CONSTRAINT chk_suprafata_tenis CHECK (tip_suprafata IN ('Zgura', 'Hard', 'Iarba'))
+);
+
+CREATE TABLE TEREN_FOTBAL (
+    teren_id NUMBER(10) PRIMARY KEY,
+    tip_gazon VARCHAR2(20) NOT NULL,
+    este_acoperit NUMBER(1) DEFAULT 0 NOT NULL,
+    CONSTRAINT fk_fotbal_teren FOREIGN KEY (teren_id) REFERENCES TEREN(teren_id),
+    CONSTRAINT chk_gazon_fotbal CHECK (tip_gazon IN ('Natural', 'Sintetic')),
+    CONSTRAINT chk_acoperit_fotbal CHECK (este_acoperit IN (0, 1))
+);
+
+CREATE TABLE PISCINA (
+    teren_id NUMBER(10) PRIMARY KEY,
+    adancime_metri NUMBER(4, 2) NOT NULL,
+    este_acoperita NUMBER(1) DEFAULT 0 NOT NULL,
+    CONSTRAINT fk_piscina_teren FOREIGN KEY (teren_id) REFERENCES TEREN(teren_id),
+    CONSTRAINT chk_acoperita_piscina CHECK (este_acoperita IN (0, 1))
+);
+
+CREATE TABLE VESTIAR (
+    complex_id NUMBER(10),
+    nr_vestiar NUMBER(3),
+    gen VARCHAR2(10) NOT NULL,
+    capacitate NUMBER(3) NOT NULL,
+    PRIMARY KEY (complex_id, nr_vestiar),
+    CONSTRAINT fk_vestiar_complex FOREIGN KEY (complex_id) REFERENCES COMPLEX_SPORTIV(complex_id),
+    CONSTRAINT chk_gen_vestiar CHECK (gen IN ('Masculin', 'Feminin', 'Mixt'))
+);
+
+CREATE TABLE REZERVARE (
+    rezervare_id NUMBER(10) PRIMARY KEY,
+    data_rezervare DATE NOT NULL,
+    ora_inceput TIMESTAMP NOT NULL,
+    ora_sfarsit TIMESTAMP NOT NULL,
+    status_plata VARCHAR2(20) DEFAULT 'Neplatit' NOT NULL,
+    client_id NUMBER(10) NOT NULL,
+    teren_id NUMBER(10) NOT NULL,
+    CONSTRAINT fk_rezervare_client FOREIGN KEY (client_id) REFERENCES CLIENT(client_id),
+    CONSTRAINT fk_rezervare_teren FOREIGN KEY (teren_id) REFERENCES TEREN(teren_id),
+    CONSTRAINT chk_status_plata CHECK (status_plata IN ('Platit', 'Neplatit', 'Anulat'))
+);
+
+-- Tabele asociative
+CREATE TABLE PARTICIPANTI_REZERVARE (
+    client_id NUMBER(10),
+    rezervare_id NUMBER(10),
+    PRIMARY KEY (client_id, rezervare_id),
+    CONSTRAINT fk_part_client FOREIGN KEY (client_id) REFERENCES CLIENT(client_id),
+    CONSTRAINT fk_part_rezervare FOREIGN KEY (rezervare_id) REFERENCES REZERVARE(rezervare_id)
+);
+
+CREATE TABLE INCHIRIERE (
+    client_id NUMBER(10),
+    rezervare_id NUMBER(10),
+    echipament_id NUMBER(10),
+    cantitate NUMBER(3) DEFAULT 1 NOT NULL,
+    PRIMARY KEY (client_id, rezervare_id, echipament_id),
+    CONSTRAINT fk_inc_client FOREIGN KEY (client_id) REFERENCES CLIENT(client_id),
+    CONSTRAINT fk_inc_rezervare FOREIGN KEY (rezervare_id) REFERENCES REZERVARE(rezervare_id),
+    CONSTRAINT fk_inc_echipament FOREIGN KEY (echipament_id) REFERENCES ECHIPAMENT(echipament_id)
+);
+```
+
+![Descriere](https://i.imgur.com/xgThQTc.png)
+
+![Descriere](https://i.imgur.com/3jhTVZ3.png)
+
+![Descriere](https://i.imgur.com/KITInbW.png)
+
+### 6.2 Inserarea Datelor
+
+```sql
+-- Tabele independente
+-- Inserare COMPLEX_SPORTIV
+INSERT INTO COMPLEX_SPORTIV VALUES (1, 'Complex Sportiv Vitan', 'Calea Vitan 23', '08:00 - 23:00');
+INSERT INTO COMPLEX_SPORTIV VALUES (2, 'Baza Sportiva Tineretului', 'Bulevardul Tineretului 1', '07:00 - 22:00');
+INSERT INTO COMPLEX_SPORTIV VALUES (3, 'Stejarii Country Club', 'Str. Jandarmeriei 14A', '06:00 - 23:00');
+INSERT INTO COMPLEX_SPORTIV VALUES (4, 'Pescariu Sports & Spa', 'Str. Glodeni 3', '07:00 - 23:00');
+INSERT INTO COMPLEX_SPORTIV VALUES (5, 'Club Politehnica', 'Splaiul Independentei 313', '09:00 - 21:00');
+
+-- Inserare CLIENT
+INSERT INTO CLIENT (client_id, nume, prenume, email, telefon) VALUES (101, 'Popescu', 'Ion', 'ion.popescu@email.com', '0722123456');
+INSERT INTO CLIENT (client_id, nume, prenume, email, telefon) VALUES (102, 'Ionescu', 'Maria', 'maria.ionescu@email.com', '0745987654');
+INSERT INTO CLIENT (client_id, nume, prenume, email, telefon) VALUES (103, 'Marinescu', 'Andrei', 'andrei.m@email.com', '0765112233');
+INSERT INTO CLIENT (client_id, nume, prenume, email, telefon) VALUES (104, 'Georgescu', 'Elena', 'elena.g@email.com', '0721445566');
+INSERT INTO CLIENT (client_id, nume, prenume, email, telefon) VALUES (105, 'Constantin', 'Mihai', 'mihai.c@email.com', '0733778899');
+
+-- Inserare ABONAMENT (1:1 cu Client)
+INSERT INTO ABONAMENT VALUES (201, 'Gold', TO_DATE('2023-01-01', 'YYYY-MM-DD'), TO_DATE('2023-12-31', 'YYYY-MM-DD'), 1200, 101);
+INSERT INTO ABONAMENT VALUES (202, 'Silver', TO_DATE('2023-06-15', 'YYYY-MM-DD'), TO_DATE('2024-06-14', 'YYYY-MM-DD'), 750, 103);
+INSERT INTO ABONAMENT VALUES (203, 'Bronze', TO_DATE('2023-09-01', 'YYYY-MM-DD'), TO_DATE('2024-03-01', 'YYYY-MM-DD'), 300, 104);
+INSERT INTO ABONAMENT VALUES (204, 'Gold', TO_DATE('2023-02-10', 'YYYY-MM-DD'), TO_DATE('2024-02-09', 'YYYY-MM-DD'), 1200, 105);
+INSERT INTO ABONAMENT VALUES (205, 'Silver', TO_DATE('2023-11-20', 'YYYY-MM-DD'), TO_DATE('2024-11-19', 'YYYY-MM-DD'), 750, 102);
+
+-- Inserare ECHIPAMENT
+INSERT INTO ECHIPAMENT VALUES (301, 'Racheta Tenis Adult', 15.00);
+INSERT INTO ECHIPAMENT VALUES (302, 'Set Mingi Tenis (3 buc)', 5.00);
+INSERT INTO ECHIPAMENT VALUES (303, 'Minge Fotbal', 10.00);
+INSERT INTO ECHIPAMENT VALUES (304, 'Casca Inot', 5.00);
+INSERT INTO ECHIPAMENT VALUES (305, 'Ochelari Inot', 7.50);
+
+-- Inserare TEREN
+INSERT INTO TEREN VALUES (1, 100, 4, 'Tenis', 1);
+INSERT INTO TEREN VALUES (2, 90, 4, 'Tenis', 1);
+INSERT INTO TEREN VALUES (3, 250, 12, 'Fotbal', 2);
+INSERT INTO TEREN VALUES (4, 120, 4, 'Tenis', 3);
+INSERT INTO TEREN VALUES (5, 50, 1, 'Piscina', 4);
+
+-- Inserare SUBTABELE
+INSERT INTO TEREN_TENIS VALUES (1, 'Zgura');
+INSERT INTO TEREN_TENIS VALUES (2, 'Hard');
+INSERT INTO TEREN_FOTBAL VALUES (3, 'Sintetic', 1);
+INSERT INTO TEREN_TENIS VALUES (4, 'Iarba');
+INSERT INTO PISCINA VALUES (5, 2.5, 1);
+
+-- Inserare VESTIAR (entitate dependentă)
+INSERT INTO VESTIAR VALUES (1, 1, 'Masculin', 20);
+INSERT INTO VESTIAR VALUES (1, 2, 'Feminin', 20);
+INSERT INTO VESTIAR VALUES (2, 1, 'Mixt', 50);
+INSERT INTO VESTIAR VALUES (3, 1, 'Masculin', 30);
+INSERT INTO VESTIAR VALUES (3, 2, 'Feminin', 30);
+
+-- Inserare REZERVARE
+INSERT INTO REZERVARE (rezervare_id, data_rezervare, ora_inceput, ora_sfarsit, status_plata, client_id, teren_id) VALUES (401, TO_DATE('2023-11-25', 'YYYY-MM-DD'), TO_TIMESTAMP('2023-11-25 18:00', 'YYYY-MM-DD HH24:MI'), TO_TIMESTAMP('2023-11-25 20:00', 'YYYY-MM-DD HH24:MI'), 'Platit', 101, 1);
+INSERT INTO REZERVARE (rezervare_id, data_rezervare, ora_inceput, ora_sfarsit, status_plata, client_id, teren_id) VALUES (402, TO_DATE('2023-11-26', 'YYYY-MM-DD'), TO_TIMESTAMP('2023-11-26 19:00', 'YYYY-MM-DD HH24:MI'), TO_TIMESTAMP('2023-11-26 21:00', 'YYYY-MM-DD HH24:MI'), 'Neplatit', 102, 3);
+INSERT INTO REZERVARE (rezervare_id, data_rezervare, ora_inceput, ora_sfarsit, status_plata, client_id, teren_id) VALUES (403, TO_DATE('2023-11-27', 'YYYY-MM-DD'), TO_TIMESTAMP('2023-11-27 10:00', 'YYYY-MM-DD HH24:MI'), TO_TIMESTAMP('2023-11-27 11:00', 'YYYY-MM-DD HH24:MI'), 'Platit', 103, 5);
+INSERT INTO REZERVARE (rezervare_id, data_rezervare, ora_inceput, ora_sfarsit, status_plata, client_id, teren_id) VALUES (404, TO_DATE('2023-11-28', 'YYYY-MM-DD'), TO_TIMESTAMP('2023-11-28 14:00', 'YYYY-MM-DD HH24:MI'), TO_TIMESTAMP('2023-11-28 16:00', 'YYYY-MM-DD HH24:MI'), 'Platit', 101, 2);
+INSERT INTO REZERVARE (rezervare_id, data_rezervare, ora_inceput, ora_sfarsit, status_plata, client_id, teren_id) VALUES (405, TO_DATE('2023-11-29', 'YYYY-MM-DD'), TO_TIMESTAMP('2023-11-29 20:00', 'YYYY-MM-DD HH24:MI'), TO_TIMESTAMP('2023-11-29 22:00', 'YYYY-MM-DD HH24:MI'), 'Neplatit', 105, 3);
+
+-- Inserare PARTICIPANTI_REZERVARE (M:N)
+INSERT INTO PARTICIPANTI_REZERVARE VALUES (101, 401);
+INSERT INTO PARTICIPANTI_REZERVARE VALUES (103, 401); -- Alt participant la aceeasi rezervare
+INSERT INTO PARTICIPANTI_REZERVARE VALUES (102, 402);
+INSERT INTO PARTICIPANTI_REZERVARE VALUES (104, 402);
+INSERT INTO PARTICIPANTI_REZERVARE VALUES (105, 402);
+INSERT INTO PARTICIPANTI_REZERVARE VALUES (103, 403);
+INSERT INTO PARTICIPANTI_REZERVARE VALUES (101, 404);
+
+-- Inserare INCHIRIERE (ternară)
+INSERT INTO INCHIRIERE VALUES (101, 401, 301, 2); -- Clientul 101 la rezervarea 401 inchiriaza 2 rachete
+INSERT INTO INCHIRIERE VALUES (101, 401, 302, 1); -- ... si un set de mingi
+INSERT INTO INCHIRIERE VALUES (102, 402, 303, 1); -- Clientul 102 la rezervarea 402 inchiriaza o minge de fotbal
+INSERT INTO INCHIRIERE VALUES (103, 403, 304, 1);
+INSERT INTO INCHIRIERE VALUES (103, 403, 305, 1);
+```
+
+![Descriere](https://i.imgur.com/BDyaBYs.png)
+
+![Descriere](https://i.imgur.com/KF5ZOHL.png)
